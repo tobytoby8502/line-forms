@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新客戶諮詢｜上凡環保</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;padding:16px;max-width:480px;margin:auto;color:#222;background:#fafafa}
+  h2{margin:4px 0 4px}
+  .sub{color:#666;font-size:14px;margin-bottom:8px}
+  label{display:block;margin-top:14px;font-weight:600;font-size:15px}
+  input,select,textarea{width:100%;padding:11px;margin-top:5px;box-sizing:border-box;font-size:16px;border:1px solid #ccc;border-radius:8px;background:#fff}
+  button{margin-top:24px;width:100%;padding:14px;font-size:17px;background:#06c755;color:#fff;border:0;border-radius:10px;font-weight:600}
+  button:disabled{background:#9ddcb6}
+  #msg{color:#c00;margin-top:12px}
+  .req{color:#c00}
+</style>
+</head>
+<body>
+<h2>新客戶諮詢</h2>
+<div class="sub">留下基本資料，業務將於 1 個工作天內與您聯繫。</div>
+
+<label>公司名稱 <span class="req">*</span><input id="company" autocomplete="organization"></label>
+<label>業態 <span class="req">*</span>
+  <select id="industry">
+    <option value="">請選擇</option>
+    <option>餐廳</option><option>團膳</option><option>企業餐廳</option><option>其他</option>
+  </select>
+</label>
+<label>地區 <span class="req">*</span><input id="area" placeholder="例：桃園市中壢區"></label>
+<label>每日廚餘量<input id="volume" placeholder="例：約 50 kg／2 桶"></label>
+<label>目前處理方式<input id="current" placeholder="例：清潔隊、其他業者"></label>
+<label>聯絡人 <span class="req">*</span><input id="contact" autocomplete="name"></label>
+<label>電話 <span class="req">*</span><input id="phone" type="tel" autocomplete="tel"></label>
+<label>Email<input id="email" type="email" autocomplete="email"></label>
+<label>方便聯繫時段
+  <select id="time"><option>不限</option><option>上午</option><option>下午</option></select>
+</label>
+<label>備註<textarea id="note" rows="3"></textarea></label>
+
+<button id="send">送出諮詢</button>
+<p id="msg"></p>
+
+<script>
+const LIFF_ID = '2012073332-8NZRy4do';
+const API = 'https://script.google.com/macros/s/AKfycby4gcTL7dr4aDmcrk2Pa1rkO3-aCcwKXjAvW1c23zoQUf8fiED_4B8aVplub843uWXD1g/exec';
+const $ = id => document.getElementById(id);
+
+liff.init({ liffId: LIFF_ID })
+  .then(() => { if (!liff.isLoggedIn()) liff.login({ redirectUri: location.href }); })
+  .catch(err => { $('msg').textContent = '初始化失敗：' + err.message; });
+
+$('send').onclick = async () => {
+  const v = id => $(id).value.trim();
+  const d = {
+    formType: 'inquiry', idToken: liff.getIDToken(),
+    company: v('company'), industry: v('industry'), area: v('area'), volume: v('volume'),
+    current: v('current'), contact: v('contact'), phone: v('phone'), email: v('email'),
+    time: v('time'), note: v('note')
+  };
+  if (!d.company || !d.industry || !d.area || !d.contact || !d.phone) {
+    $('msg').textContent = '請填寫所有 * 必填欄位'; return;
+  }
+  $('send').disabled = true; $('msg').style.color = '#666'; $('msg').textContent = '送出中…';
+  try {
+    const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(d) });
+    const r = await res.json();
+    if (!r.ok) throw new Error(r.error || '伺服器錯誤');
+    if (liff.isInClient()) {
+      await liff.sendMessages([{ type: 'text', text: `已送出合作諮詢\n單號：${r.id}\n${d.company}（${d.industry}）` }]);
+      liff.closeWindow();
+    } else {
+      $('msg').style.color = '#06a04a';
+      $('msg').textContent = `已送出！單號 ${r.id}，業務將盡快與您聯繫。`;
+    }
+  } catch (err) {
+    $('msg').style.color = '#c00';
+    $('msg').textContent = '送出失敗：' + err.message;
+    $('send').disabled = false;
+  }
+};
+</script>
+</body>
+</html>

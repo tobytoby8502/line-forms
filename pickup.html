@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>臨時清運申請｜上凡環保</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  body{font-family:-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;padding:16px;max-width:480px;margin:auto;color:#222;background:#fafafa}
+  h2{margin:4px 0 4px}
+  .sub{color:#666;font-size:14px;margin-bottom:8px}
+  label{display:block;margin-top:14px;font-weight:600;font-size:15px}
+  input,select,textarea{width:100%;padding:11px;margin-top:5px;box-sizing:border-box;font-size:16px;border:1px solid #ccc;border-radius:8px;background:#fff}
+  button{margin-top:24px;width:100%;padding:14px;font-size:17px;background:#06c755;color:#fff;border:0;border-radius:10px;font-weight:600}
+  button:disabled{background:#9ddcb6}
+  #msg{color:#c00;margin-top:12px}
+  .req{color:#c00}
+</style>
+</head>
+<body>
+<h2>臨時清運申請</h2>
+<div class="sub">送出後專人確認時間，會在 LINE 通知您。</div>
+
+<label>公司／店名 <span class="req">*</span><input id="company" autocomplete="organization"></label>
+<label>聯絡人 <span class="req">*</span><input id="contact" autocomplete="name"></label>
+<label>電話 <span class="req">*</span><input id="phone" type="tel" autocomplete="tel"></label>
+<label>清運地址 <span class="req">*</span><input id="address" autocomplete="street-address"></label>
+<label>預估量（桶數或公斤）<input id="amount" placeholder="例：3 桶／約 60 kg"></label>
+<label>希望清運日期 <span class="req">*</span><input id="date" type="date"></label>
+<label>時段 <span class="req">*</span>
+  <select id="slot"><option>上午</option><option>下午</option><option>晚上</option></select>
+</label>
+<label>備註<textarea id="note" rows="3" placeholder="例：後門進出、需上樓等"></textarea></label>
+
+<button id="send">送出申請</button>
+<p id="msg"></p>
+
+<script>
+const LIFF_ID = '2012073332-0SzS7huz';
+const API = 'https://script.google.com/macros/s/AKfycby4gcTL7dr4aDmcrk2Pa1rkO3-aCcwKXjAvW1c23zoQUf8fiED_4B8aVplub843uWXD1g/exec';
+const $ = id => document.getElementById(id);
+
+// 日期預設最早為今天
+const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+$('date').min = today;
+
+liff.init({ liffId: LIFF_ID })
+  .then(() => { if (!liff.isLoggedIn()) liff.login({ redirectUri: location.href }); })
+  .catch(err => { $('msg').textContent = '初始化失敗：' + err.message; });
+
+$('send').onclick = async () => {
+  const v = id => $(id).value.trim();
+  const d = {
+    formType: 'pickup', idToken: liff.getIDToken(),
+    company: v('company'), contact: v('contact'), phone: v('phone'), address: v('address'),
+    amount: v('amount'), date: v('date'), slot: v('slot'), note: v('note')
+  };
+  if (!d.company || !d.contact || !d.phone || !d.address || !d.date) {
+    $('msg').textContent = '請填寫所有 * 必填欄位'; return;
+  }
+  $('send').disabled = true; $('msg').style.color = '#666'; $('msg').textContent = '送出中…';
+  try {
+    const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(d) });
+    const r = await res.json();
+    if (!r.ok) throw new Error(r.error || '伺服器錯誤');
+    if (liff.isInClient()) {
+      await liff.sendMessages([{ type: 'text', text: `已送出臨時清運申請\n單號：${r.id}\n${d.date} ${d.slot}｜${d.address}` }]);
+      liff.closeWindow();
+    } else {
+      $('msg').style.color = '#06a04a';
+      $('msg').textContent = `已送出！單號 ${r.id}，專人確認後會以 LINE 通知您。`;
+    }
+  } catch (err) {
+    $('msg').style.color = '#c00';
+    $('msg').textContent = '送出失敗：' + err.message;
+    $('send').disabled = false;
+  }
+};
+</script>
+</body>
+</html>
